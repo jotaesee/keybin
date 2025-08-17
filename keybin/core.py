@@ -153,8 +153,8 @@ def _fuzzySearch(search : str):
     scored_results = []
     search_lower = search.lower()
 
-    for log in all_logs:
-        ## tendria q buscar en todos los campos pq no sabemos q busca
+    for log in all_logs: ## buscar en todos los campos pq no sabemos q busca
+
         service = log.service.lower() if log.service else ""
         user = log.user.lower() if log.user else ""
         email = log.email.lower() if log.email else ""
@@ -171,12 +171,12 @@ def _fuzzySearch(search : str):
         
         max_score = max(score_service, score_user, score_email, score_tags, score_tags)
         
-        if max_score >= SCORE_THRESHOLD: ## puntaje pasa el threshold, tonces lo agregamos a los resultados
+        if max_score >= SCORE_THRESHOLD: ## puntaje pasa el threshold, tonces lo agregamos a los resultados con su puntaje
             scored_results.append((log, max_score))
 
+
+## hay q ordenar y filtrar
     scored_results.sort(key=lambda item: item[1], reverse=True)
-    
-    # Devolvemos solo los objetos 'passwordLog' de los resultados ordenados
     final_results = [log for log, score in scored_results]
     
     return final_results
