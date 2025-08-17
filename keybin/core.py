@@ -1,4 +1,5 @@
-import secrets, string, json, os, difflib
+import secrets, string, json, os
+from thefuzz import fuzz
 from passlib.context import CryptContext
 from keybin.models import passwordLog, ProfileModel, ConfigDataModel, LogsFileModel
 from datetime import datetime, timezone
@@ -120,7 +121,8 @@ def doSearch(search : str | None = None , service : str | None = None ,username 
     logs_list: list[passwordLog] = profileLogFile.logs.values()  # lista ya con instancias
     filtered_results : list [passwordLog]= []
 
-    if search == "all": return logs_list
+    if search == "all": 
+        return logs_list
     
     if search : return _fuzzySearch(search) ## la busqueda no especifica en que campo busca, asi que tenemos que mandarla a fuzzy search y que se encargue ahi
     
@@ -134,7 +136,7 @@ def doSearch(search : str | None = None , service : str | None = None ,username 
             passes = False
 
         if tags:
-            if not log.tags or not any(tag in log.tags for tag in tags):
+            if not log.tags or not all(tag in log.tags for tag in tags):
                 passes = False
 
         if passes:
@@ -144,5 +146,37 @@ def doSearch(search : str | None = None , service : str | None = None ,username 
 
 
 def _fuzzySearch(search : str):
+    SCORE_THRESHOLD = 75
+
+    profileLogFile: LogsFileModel = getLogFile()
+    all_logs: list[passwordLog] = list(profileLogFile.logs.values())
+    scored_results = []
+    search_lower = search.lower()
+
+    for log in all_logs:
+        ## tendria q buscar en todos los campos pq no sabemos q busca
+        service = log.service.lower() if log.service else ""
+        user = log.user.lower() if log.user else ""
+        email = log.email.lower() if log.email else ""
+        tags = log.tags if log.tags else ""
+        
+        score_service = fuzz.partial_ratio(search_lower, service)
+        score_user = fuzz.partial_ratio(search_lower, user)
+        score_email = fuzz.partial_ratio(search_lower, email)
+        
+        score_tags = 0
+        for tag in tags:
+            newScore = fuzz.partial_ratio(search_lower, tag)
+            if newScore > score_tags : score_tags = newScore
+        
+        max_score = max(score_service, score_user, score_email, score_tags, score_tags)
+        
+        if max_score >= SCORE_THRESHOLD: ## puntaje pasa el threshold, tonces lo agregamos a los resultados
+            scored_results.append((log, max_score))
+
+    scored_results.sort(key=lambda item: item[1], reverse=True)
     
-    return [passwordLog( user="juse", password="contraseñaxd",tags = None, createdAt=None)]
+    # Devolvemos solo los objetos 'passwordLog' de los resultados ordenados
+    final_results = [log for log, score in scored_results]
+    
+    return final_results
