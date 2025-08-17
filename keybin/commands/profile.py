@@ -8,11 +8,6 @@ from keybin.models import ConfigDataModel, ProfileModel
 profile_app = typer.Typer()
 
 
-@profile_app.command()
-def whoami():
-    config : ConfigDataModel = getConfig()
-    typer.echo(config.active_profile)
-
 @profile_app.command("list")
 def list():
     config: ConfigDataModel = getConfig()
