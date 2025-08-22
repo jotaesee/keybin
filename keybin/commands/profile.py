@@ -2,7 +2,7 @@ from rich.console import Console
 from rich.table import Table
 
 import typer
-from keybin.core import getConfig, startProfile, saveConfig, checkPass, eraseProfileData
+from keybin.core import getConfig, startProfile, checkPass, eraseProfileData, eraseToken, createToken, require_active_session
 from keybin.models import ConfigDataModel, ProfileModel
 
 profile_app = typer.Typer()
@@ -38,27 +38,28 @@ def newProfile(user : str = typer.Option(None , "--user", "-u"), key : str = typ
         
 
 @profile_app.command("switch")
-def switchProfile(user:str = typer.Argument(None), tryPass : str = typer.Option(None, "--key", "-k")):
+@require_active_session
+def switchProfile(user:str = typer.Argument(None, help="Profile to switch to"), key : str = typer.Argument(None, help="Masterkey for profile")):
     
     config : ConfigDataModel = getConfig()    
     if not user : 
-        user = typer.prompt("Select user")
+        user = typer.prompt("Select user:")
     if user not in config.profiles:
             typer.echo(typer.style("ERROR : This profile does not exist.", fg="red"))
             return 0
         
 
-    configKey = config.profiles[user].masterkey ## llave del perfil    
-    if configKey != "" and configKey != None : ## si no esta vacia y no es nula tengo q que comprobar la contraseña
-        if not tryPass : tryPass = typer.prompt("Please insert profile's masterkey: \n")
-        if not checkPass(tryPass, config.profiles[user].masterkey):
+    profileKey = config.profiles[user].masterkey ## llave del perfil    
+    
+    if profileKey != "" and profileKey != None : ## si el perfil tiene contraseña tengo que pedirla y chequear 
+        if not key : key = typer.prompt("Please insert profile's masterkey: \n")
+        if not checkPass(key, profileKey):
             typer.echo(typer.style("ERROR : Incorrect masterkey.", fg="red"))
             return 0
         
-    config.active_profile = user
-    
+    eraseToken() ## eliminamos token anterior
+    createToken(user, key) ## creamos nueva sesion
     typer.echo(f"{typer.style("Switched correctly to", fg="green")} {typer.style(f"{user}", fg="yellow")}")
-    saveConfig(config)
     
     
 @profile_app.command("delete")

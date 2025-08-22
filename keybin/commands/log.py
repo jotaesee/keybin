@@ -2,13 +2,14 @@ import typer
 from keybin.models import passwordLog
 from rich.console import Console
 from rich.table import Table
-from keybin.core import newLog, doSearch, newSecureString
+from keybin.core import newLog, doSearch, newSecureString, require_active_session
 
 
 console = Console()
 log_app = typer.Typer()
 
 @log_app.command("add")
+@require_active_session
 def genlog(
     service : str = typer.Option(None,"--service", "-s"), 
     user : str = typer.Option(None, "--user", "-u"),
@@ -37,6 +38,7 @@ def genlog(
     
 
 @log_app.command("find")
+@require_active_session
 def find(
     search: str = typer.Argument(None),
     service: str = typer.Option(None, "--service", "-s"),

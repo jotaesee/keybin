@@ -1,8 +1,8 @@
 import typer, pyperclip, sys
 from keybin.commands.profile import profile_app
 from keybin.commands.log import log_app
-from keybin.core import newSecureString, getConfig, getLogFile
-
+from keybin.core import newSecureString, getConfig, getLogFile, createToken, eraseToken
+from .exceptions import *
 
 app = typer.Typer()
 app.add_typer(profile_app, name="profile")
@@ -28,12 +28,45 @@ def userStatus() :
     typer.secho("--- Keybin status ---", fg="cyan")
     
     config = getConfig()
-    log_file = getLogFile()
-        
     active_profile = config.active_profile
+    if not active_profile : 
+        typer.secho("No active profile", fg = "red")
+        exit()
+    
+    log_file = getLogFile()
     datapath = config.profiles[active_profile].data_path
     log_count = len(log_file.logs)
     
     typer.echo(f"Active profile: {typer.style(active_profile, bold=True, fg="green")}")
     typer.echo(f"Profile's data path: {typer.style(datapath, bold=True, fg="bright_blue")} ")
     typer.echo(f"Saved logs count: {typer.style(log_count, bold=True)}")
+
+
+@app.command("login")
+def login(
+    user : str = typer.Argument(None, help="User to log onto"),
+    key : str = typer.Argument(None, help="Masterkey for profile") ):
+    
+    if not user : 
+        typer.secho("ERROR: Please select a profile to log into", fg="red")
+        exit()
+    
+    try:
+        createToken(user, key)
+        typer.secho(f"Logged succesfully into {user}", fg = "green")
+    except PasswordNeededError: 
+        return typer.secho("ERROR: Masterkey needed for this profile", fg = "red")
+    except InvalidPasswordError:
+        return typer.secho("ERROR: Invalid key", fg = "red")
+    except UserNotFoundError:
+        return typer.secho("ERROR: User does not exist", fg = "red")
+    except SessionAlreadyExistsError: 
+        return typer.secho("ERROR: There's a user active, check who you are with 'keybin status' or try switching with 'keybin profile switch <profile> <masterkey>' ", fg = "red")       
+
+    
+    
+@app.command("logout")
+def logout():
+    if not eraseToken():
+        return typer.secho("Already logged out", fg="green")    
+    typer.secho("Logged out successfully", fg = "green")

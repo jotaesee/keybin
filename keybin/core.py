@@ -1,15 +1,80 @@
-import secrets, string, json, os
+import secrets, string, json, os, keyring, time, typer
+from .exceptions import *
 from thefuzz import fuzz
 from passlib.context import CryptContext
 from keybin.models import passwordLog, ProfileModel, ConfigDataModel, LogsFileModel
 from datetime import datetime, timezone
 from pathlib import Path
 from platformdirs import user_data_dir, user_config_path
+from functools import wraps
+
 
 CONFIG_PATH = user_config_path("configs", "keybin")
 DEFAULT_STORAGE_PATH = user_data_dir("data", "keybin")
-
+SESSION_TIME = 900 ## 15 minutos x ahi
 passContext = CryptContext(schemes=["bcrypt"], deprecated = "auto")
+
+
+def eraseToken():
+    config : ConfigDataModel = getConfig()
+    user = config.active_profile
+    config.active_profile = ""
+    saveConfig(config)
+    try:
+        keyring.delete_password("keybin_session", f"{user}")
+        return True
+    except keyring.errors.PasswordDeleteError:
+        return False
+
+def createToken(user : string , key : str):
+    
+    config = getConfig()
+    profileKey = config.profiles[user].masterkey
+    
+    if config.active_profile:
+        raise SessionAlreadyExistsError("ERROR: There's an active session")
+    
+    if user not in config.profiles: 
+        raise UserNotFoundError("ERROR: Profile does not exist")
+
+    if profileKey != '' :  
+        if not key :
+            raise PasswordNeededError("ERROR: Masterkey required for this profile")
+        if not checkPass(key, profileKey):
+            raise InvalidPasswordError("ERROR: Invalid password")
+    
+
+    timestamp = int(time.time())
+    sessionToken = f"{key}:{timestamp}"
+    config.active_profile = user
+    keyring.set_password("keybin_session", f"{user}", f"{sessionToken}")
+    saveConfig(config)
+
+
+def tokenCheck():
+    
+    config = getConfig()
+    user = config.active_profile
+    session_data = keyring.get_password("keybin_session", f"{user}")
+    
+    if not session_data or not user:
+        eraseToken()
+        raise NoSessionActiveError("ERROR: Invalid or no session, try login in again.")
+    
+    try:
+        key, login_timestamp = session_data.split(":")
+        login_timestamp = int(login_timestamp)
+    except (ValueError, TypeError):
+        keyring.delete_password("keybin_session", f"{user}")
+        eraseToken()
+        raise CorruptedSessionError("ERROR: Session's corrrupted, please login again")
+
+    if time.time() - login_timestamp > SESSION_TIME: ## chequeo si no murió ya la sesion
+        keyring.delete_password("keybin_session", f"{user}")
+        eraseToken()
+        raise SessionExpiredError("ERROR: Session's expired")
+    
+    return 0
 
 def getConfig():
     if not CONFIG_PATH.exists():
@@ -23,7 +88,7 @@ def getConfig():
 def createConfig():
     
     defaultConfig = {
-        "active_profile" : "default",
+        "active_profile" : "",
         "profiles" : {
             "default" : {
                 "data_path" : str(Path(DEFAULT_STORAGE_PATH).joinpath("default")),
@@ -67,6 +132,8 @@ def getActivePath():
     return path
 
 def checkPass(keyToHash : string, keyHashed : string):
+    if not keyHashed : return True
+    if not keyToHash : return False ## si hay key en el perfil y no llega hasta aqui, rip
     return passContext.verify(keyToHash, keyHashed)
 
 def getLogFile():
@@ -180,3 +247,24 @@ def _fuzzySearch(search : str):
     final_results = [log for log, score in scored_results]
     
     return final_results
+
+
+
+def require_active_session(func):
+    """
+    Checks token for secured commands.
+    """
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            tokenCheck() 
+            return func(*args, **kwargs)
+
+        except (NoSessionActiveError, SessionExpiredError, CorruptedSessionError) as e:
+            typer.secho(str(e), fg="red")
+            return
+        except Exception as e:
+            typer.secho(f"Unexpected error: {e}", fg="red")
+            return
+
+    return wrapper
