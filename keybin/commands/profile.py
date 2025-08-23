@@ -26,7 +26,7 @@ def list():
     
     
     
-@profile_app.command("new")
+@profile_app.command("add")
 def newProfile(user : str = typer.Option(None , "--user", "-u"), key : str = typer.Option(None, "--key", "-k"), path : str = typer.Option(None, "--path", "-p") ):
     if not user : user = typer.prompt("Insert new profile name")
     if not path and typer.confirm("Add custom path?"): path = typer.prompt("Insert custom path")
