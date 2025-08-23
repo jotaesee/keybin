@@ -1,7 +1,7 @@
-import typer, pyperclip, sys
+import typer, pyperclip, time
 from keybin.commands.profile import profile_app
 from keybin.commands.log import log_app
-from keybin.core import newSecureString, getConfig, getLogFile, createToken, eraseToken
+from keybin.core import newSecureString, getConfig, getLogFile, createToken, eraseToken, tokenCheck
 from .exceptions import *
 
 app = typer.Typer()
@@ -33,13 +33,29 @@ def userStatus() :
         typer.secho("No active profile", fg = "red")
         exit()
     
-    log_file = getLogFile()
-    datapath = config.profiles[active_profile].data_path
-    log_count = len(log_file.logs)
+    try:
+        log_file = getLogFile()
+        datapath = config.profiles[active_profile].data_path
+        log_count = len(log_file.logs)
+        
+        typer.echo(f"Active profile: {typer.style(active_profile, bold=True, fg="green")}")
+        typer.echo(f"Profile's data path: {typer.style(datapath, bold=True, fg="bright_blue")} ")
+        typer.echo(f"Saved logs count: {typer.style(log_count, bold=True)}")
+        
+        token = tokenCheck()
+        key, login_timestamp = token.split(":")
+        remaingSessionTime = int(900 - (time.time() - int(login_timestamp)) )
+        if remaingSessionTime > 60 :
+            remaingSessionTime = int(remaingSessionTime/60) 
+            typer.echo(f"Session remaining time: {typer.style(f"{remaingSessionTime}m", fg ="yellow")}")
+        else: typer.echo(f"Session remaining time: {typer.style(f"{remaingSessionTime}s", fg ="red")}")
     
-    typer.echo(f"Active profile: {typer.style(active_profile, bold=True, fg="green")}")
-    typer.echo(f"Profile's data path: {typer.style(datapath, bold=True, fg="bright_blue")} ")
-    typer.echo(f"Saved logs count: {typer.style(log_count, bold=True)}")
+    except NoSessionActiveError:
+        return typer.secho("No session active, try logging in.", fg= "red")
+    except CorruptedSessionError:
+        return typer.secho("Corrupted session, please log again.", fg ="red")
+    except SessionExpiredError:
+        return typer.echo(f"Session remaining time: {typer.style("Expired, log in again.", fg="red")}")
 
 
 @app.command("login")

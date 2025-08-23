@@ -74,7 +74,7 @@ def tokenCheck():
         eraseToken()
         raise SessionExpiredError("ERROR: Session's expired")
     
-    return 0
+    return keyring.get_password("keybin_session", f"{user}")
 
 def getConfig():
     if not CONFIG_PATH.exists():
