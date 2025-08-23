@@ -22,3 +22,5 @@ class CorruptedSessionError(KeybinError):
 class PasswordNeededError(KeybinError):
     pass
 
+class NoLogFoundError(KeybinError):
+    pass

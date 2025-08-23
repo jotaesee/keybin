@@ -2,8 +2,8 @@ import typer
 from keybin.models import passwordLog
 from rich.console import Console
 from rich.table import Table
-from keybin.core import newLog, doSearch, newSecureString, require_active_session
-
+from keybin.core import newLog, doSearch, newSecureString, require_active_session, deleteLog
+from keybin.exceptions import NoLogFoundError
 
 console = Console()
 log_app = typer.Typer()
@@ -44,32 +44,61 @@ def find(
     service: str = typer.Option(None, "--service", "-s"),
     username: str = typer.Option(None, "--user", "-u", help="Search exact match for username"),
     tags: list[str] = typer.Option([], "--tags", "-t", help="Use this for filtering with tags."),
+    id: int =typer.Option(None, "--id", "-i", help="ID for exact match search")
 ):
-    searchResult: list[passwordLog] = doSearch(search, service, username, tags)
+    try:
+        searchResult: list[passwordLog] = doSearch(search, service, username, tags, id)
     
-    if not searchResult:
-        typer.echo("No results found")
-        return
+        if not searchResult:
+            typer.echo("No results found")
+            return
 
-    table = Table(title="Search Results")
-    table.add_column("ID", justify="right", style="cyan", no_wrap=True)
-    table.add_column("Service", style="magenta")
-    table.add_column("User", style="green")
-    table.add_column("Email", style="yellow")
-    table.add_column("Password", style="red")
-    table.add_column("Tags", style="blue")
-    table.add_column("Created At", style="dim")
+        table = Table(title="Search Results")
+        table.add_column("ID", justify="right", style="cyan", no_wrap=True)
+        table.add_column("Service", style="magenta")
+        table.add_column("User", style="green")
+        table.add_column("Email", style="yellow")
+        table.add_column("Password", style="red")
+        table.add_column("Tags", style="blue")
+        table.add_column("Created At", style="dim")
 
-    for log in searchResult:
+        for log in searchResult:
+        
+            table.add_row(
+                str(log.logID),
+                log.service,
+                log.user,
+                log.email,
+                log.password,
+                str(log.tags),
+                log.createdAt,
+            )
     
-        table.add_row(
-            str(log.logID),
-            log.service,
-            log.user,
-            log.email,
-            log.password,
-            str(log.tags),
-            log.createdAt,
-        )
- 
-    console.print(table)
+        console.print(table)
+        
+    except NoLogFoundError : return typer.secho("No logs found", fg ="red")
+
+@log_app.command()
+@require_active_session
+def delete(
+    id : int = typer.Argument(None, help="ID from the log you want to delete. Not sure? check all logs info with 'keybin log find all'"),
+    noPrompt : bool = typer.Option(False, "--no-prompt", "-n", help="If true, delete without asking.")
+    ):
+    
+    if id is None:
+        id_str = typer.prompt("Please enter the ID of the log to delete")
+        try:
+            id = int(id_str)
+        except (ValueError, TypeError):
+            typer.secho("ERROR: The ID must be a number.", fg="red")
+            raise typer.Exit()
+
+    if noPrompt or typer.confirm(typer.style("Are you sure you want to delete this log?", fg = "yellow") ):
+        try:
+            deleteLog(id, noPrompt)
+            typer.secho("Log deleted successfully", fg = "green")
+        except NoLogFoundError :
+            return typer.secho("ERROR: No log found with this id", fg = "red")
+    else : 
+        typer.secho("Operation cancelled", fg="red")
+        typer.Exit()        

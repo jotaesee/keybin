@@ -12,7 +12,7 @@ class passwordLog(BaseModel):
 
 class LogsFileModel(BaseModel):
     currentLogId : int
-    logs : dict [str, passwordLog]
+    logs : dict [int, passwordLog]
 
 class ProfileModel(BaseModel):
     data_path: str

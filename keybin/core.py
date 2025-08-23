@@ -167,14 +167,21 @@ def newLog(
     tags : list[str] | None = None):
     
     logFile : LogsFileModel = getLogFile()
-    if logFile : print(logFile)
     newLogID = logFile.currentLogId + 1 
     log = passwordLog(logID = newLogID, service=service, user=user, email=email, password=password, tags=tags, createdAt=datetime.now(timezone.utc).isoformat())
     logFile.currentLogId = newLogID
     logFile.logs[newLogID] = log
     saveLogFile(logFile)
     
-
+def deleteLog(id : int, noPrompt : bool) :
+    logFile = getLogFile()
+    if not logFile.logs.get(id) :
+        raise NoLogFoundError("ERROR: No log with this ID.")
+    
+    logFile.logs.pop(id)
+    saveLogFile(logFile)    
+        
+        
 def newSecureString(symbols : bool = True, length : int = 16):
     
     chars = string.ascii_letters + string.digits
@@ -182,7 +189,7 @@ def newSecureString(symbols : bool = True, length : int = 16):
     newpass = "".join(secrets.choice(chars) for _ in range(length))
     return newpass 
         
-def doSearch(search : str | None = None , service : str | None = None ,username : str | None = None, tags : list[str] | None = None):
+def doSearch(search : str | None = None , service : str | None = None ,username : str | None = None, tags : list[str] | None = None, id : int | None = None):
     
     profileLogFile : LogsFileModel = getLogFile()
     logs_list: list[passwordLog] = profileLogFile.logs.values()  # lista ya con instancias
@@ -195,6 +202,9 @@ def doSearch(search : str | None = None , service : str | None = None ,username 
     
     for log in logs_list:
         passes = True
+
+        if id and log.logID != id :
+            passes = False
 
         if service and log.service != service:
             passes = False
@@ -209,6 +219,9 @@ def doSearch(search : str | None = None , service : str | None = None ,username 
         if passes:
             filtered_results.append(log)
 
+    if filtered_results == [] :
+        raise NoLogFoundError("No results for this search")
+    
     return filtered_results
 
 
