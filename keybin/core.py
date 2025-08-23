@@ -270,7 +270,12 @@ def require_active_session(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         try:
-            tokenCheck() 
+            token = tokenCheck() 
+            user = getConfig().active_profile
+            key, timestamp = token.split(":")
+            eraseToken()
+            createToken(user, key)
+            
             return func(*args, **kwargs)
 
         except (NoSessionActiveError, SessionExpiredError, CorruptedSessionError) as e:
