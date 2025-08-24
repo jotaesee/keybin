@@ -1,7 +1,10 @@
-import secrets, string, json, os, keyring, time, typer
+import secrets, string, json, os, keyring, time, typer, base64
 from .exceptions import *
 from thefuzz import fuzz
-from passlib.context import CryptContext
+
+from cryptography.fernet import Fernet, InvalidToken
+from hashlib import pbkdf2_hmac
+
 from keybin.models import passwordLog, ProfileModel, ConfigDataModel, LogsFileModel
 from datetime import datetime, timezone
 from pathlib import Path
@@ -12,7 +15,6 @@ from functools import wraps
 CONFIG_PATH = user_config_path("configs", "keybin")
 DEFAULT_STORAGE_PATH = user_data_dir("data", "keybin")
 SESSION_TIME = 900 ## 15 minutos x ahi
-passContext = CryptContext(schemes=["bcrypt"], deprecated = "auto")
 
 
 def eraseToken():
@@ -29,7 +31,6 @@ def eraseToken():
 def createToken(user : string , key : str):
     
     config = getConfig()
-    profileKey = config.profiles[user].masterkey
     
     if config.active_profile:
         raise SessionAlreadyExistsError("ERROR: There's an active session")
@@ -37,10 +38,12 @@ def createToken(user : string , key : str):
     if user not in config.profiles: 
         raise UserNotFoundError("ERROR: Profile does not exist")
 
+    profileKey = config.profiles[user].encrypted_dek
+
     if profileKey != '' :  
         if not key :
             raise PasswordNeededError("ERROR: Masterkey required for this profile")
-        if not checkPass(key, profileKey):
+        if not checkPass(key, user):
             raise InvalidPasswordError("ERROR: Invalid password")
     
 
@@ -92,7 +95,8 @@ def createConfig():
         "profiles" : {
             "default" : {
                 "data_path" : str(Path(DEFAULT_STORAGE_PATH).joinpath("default")),
-                "password" : ""
+                "salt" : "",
+                "encrypted_dek" : ""
             }
         }
     }
@@ -105,10 +109,29 @@ def startProfile(user : str, key : str, datapath : str | None = None):
     
     if datapath == None : datapath = str(Path(DEFAULT_STORAGE_PATH).joinpath(user)) 
     
-    profile = ProfileModel(
-        masterkey = passContext.hash(key) if key else "",
-        data_path = datapath
-    )
+    if key : ## si el usuario añadio una masterkey al profile tenemos q crear todo esto:
+    
+        dek = Fernet.generate_key()
+        saltBytes = os.urandom(16)
+        saltString = base64.b64encode(saltBytes).decode("ascii")        
+        kek = pbkdf2_hmac("sha256", key.encode("utf-8"), saltBytes, 600000)
+        kekB64 = base64.urlsafe_b64encode(kek) ## la kek generada era de 32, pero fernet usa 64b asi q convertimos.
+        
+        f = Fernet(kekB64)
+        dekBytes = f.encrypt(dek)
+        dekString = base64.b64encode(dekBytes).decode("ascii") 
+    
+        profile = ProfileModel( ##son todos convertidos a string porque el model no acepta bytes, ademas los bytes no son json seriazables asi que seria otro lio.
+            salt= saltString,
+            encrypted_dek= dekString,
+            data_path = datapath
+        )
+    else :  ## si no hay key tonces vacios los dos
+        profile = ProfileModel(
+            salt= "",
+            encrypted_dek= "",
+            data_path = datapath
+        )
     config : ConfigDataModel = getConfig()
     config.profiles[user] = profile
     saveConfig(config)
@@ -131,10 +154,26 @@ def getActivePath():
     path = Path(userprofile.data_path)
     return path
 
-def checkPass(keyToHash : string, keyHashed : string):
-    if not keyHashed : return True
-    if not keyToHash : return False ## si hay key en el perfil y no llega hasta aqui, rip
-    return passContext.verify(keyToHash, keyHashed)
+def getUserProfile(user: str):
+    config = getConfig()
+    return config.profiles[user]
+
+def checkPass(key : string, user : str):
+    
+    userProfile : ProfileModel = getUserProfile(user)
+    if not userProfile.salt : return True ## si no tiene salt significa que no hay contraseña, entonces no hace falta chequearla
+    saltString = userProfile.salt
+    saltBytes = base64.b64decode(saltString) ## lo q estaba en el profile estaba encodeado en string, asi que volvemos a bytes pq si no no podemos generar la kek.
+    kek = pbkdf2_hmac("sha256", key.encode("utf-8"), saltBytes, 600000)
+    kekB64 = base64.urlsafe_b64encode(kek) ## la kek de 32 a 64 de vuelta
+    encryptedDekString = userProfile.encrypted_dek 
+    encryptedDekBytes = base64.b64decode(encryptedDekString) ## dek de string a bytes
+    
+    f = Fernet(kekB64)
+    try: ## intento con el kek ya cargado, desencriptar el dek en bytes encriptado.
+        return f.decrypt(encryptedDekBytes) ## para q podamos desencriptar archivos dsps
+    except InvalidToken:
+        raise InvalidPasswordError("La contraseña es inválida")
 
 def getLogFile():
     path = getActivePath()

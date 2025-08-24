@@ -19,7 +19,7 @@ def list():
     table.add_column("Masterkey", style="magenta")
 
     for profile_name, profile_data in config.profiles.items():
-        masterkey_display = "Yes" if profile_data.masterkey else "No"
+        masterkey_display = "Yes" if profile_data.encrypted_dek else "No"
         table.add_row(profile_name, profile_data.data_path, masterkey_display)
 
     console.print(table)
@@ -49,11 +49,11 @@ def switchProfile(user:str = typer.Argument(None, help="Profile to switch to"), 
             return 0
         
 
-    profileKey = config.profiles[user].masterkey ## llave del perfil    
+    profileHasMasterkey : bool = True if config.profiles[user].salt else False    
     
-    if profileKey != "" and profileKey != None : ## si el perfil tiene contraseña tengo que pedirla y chequear 
+    if profileHasMasterkey : ## si el perfil tiene contraseña tengo que pedirla y chequear 
         if not key : key = typer.prompt("Please insert profile's masterkey: \n")
-        if not checkPass(key, profileKey):
+        if not checkPass(key, user):
             typer.echo(typer.style("ERROR : Incorrect masterkey.", fg="red"))
             return 0
         
@@ -76,9 +76,9 @@ def deleteProfile(profile: str = typer.Argument(None)):
         typer.echo(typer.style("ERROR : This profile does not exist.", fg="red"))
         return 0
     
-    if config.profiles[profile].masterkey : 
+    if config.profiles[profile].encrypted_dek : 
         key = typer.prompt("Insert profile's masterkey to confirm deletion")
-        if not checkPass(key, config.profiles[profile].masterkey) : 
+        if not checkPass(key, profile) : 
             typer.echo(typer.style("ERROR : Incorrect masterkey.", fg="red"))
             return 0
     else:
