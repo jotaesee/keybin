@@ -43,7 +43,7 @@ def createToken(user : string , key : str):
     if profileKey != '' :  
         if not key :
             raise PasswordNeededError("ERROR: Masterkey required for this profile")
-        if not checkPass(key, user):
+        if not unlockDek(key, user):
             raise InvalidPasswordError("ERROR: Invalid password")
     
 
@@ -113,17 +113,17 @@ def startProfile(user : str, key : str, datapath : str | None = None):
     
         dek = Fernet.generate_key()
         saltBytes = os.urandom(16)
-        saltString = base64.b64encode(saltBytes).decode("ascii")        
+        saltString = base64.b64encode(saltBytes).decode("utf-8")        
         kek = pbkdf2_hmac("sha256", key.encode("utf-8"), saltBytes, 600000)
         kekB64 = base64.urlsafe_b64encode(kek) ## la kek generada era de 32, pero fernet usa 64b asi q convertimos.
         
         f = Fernet(kekB64)
-        dekBytes = f.encrypt(dek)
-        dekString = base64.b64encode(dekBytes).decode("ascii") 
+        encryptedDekBytes = f.encrypt(dek)
+        encryptedDekString = encryptedDekBytes.decode("utf-8") 
     
         profile = ProfileModel( ##son todos convertidos a string porque el model no acepta bytes, ademas los bytes no son json seriazables asi que seria otro lio.
             salt= saltString,
-            encrypted_dek= dekString,
+            encrypted_dek = encryptedDekString,
             data_path = datapath
         )
     else :  ## si no hay key tonces vacios los dos
@@ -158,7 +158,7 @@ def getUserProfile(user: str):
     config = getConfig()
     return config.profiles[user]
 
-def checkPass(key : string, user : str):
+def unlockDek(key : string, user : str):
     
     userProfile : ProfileModel = getUserProfile(user)
     if not userProfile.salt : return True ## si no tiene salt significa que no hay contraseña, entonces no hace falta chequearla
@@ -167,36 +167,48 @@ def checkPass(key : string, user : str):
     kek = pbkdf2_hmac("sha256", key.encode("utf-8"), saltBytes, 600000)
     kekB64 = base64.urlsafe_b64encode(kek) ## la kek de 32 a 64 de vuelta
     encryptedDekString = userProfile.encrypted_dek 
-    encryptedDekBytes = base64.b64decode(encryptedDekString) ## dek de string a bytes
+    encryptedDekBytes = encryptedDekString.encode("utf-8") ## dek de string a bytes
     
     f = Fernet(kekB64)
     try: ## intento con el kek ya cargado, desencriptar el dek en bytes encriptado.
         return f.decrypt(encryptedDekBytes) ## para q podamos desencriptar archivos dsps
     except InvalidToken:
         raise InvalidPasswordError("La contraseña es inválida")
-
+    
 def getLogFile():
     path = getActivePath()
     
     if not path.exists():
         createLogFile(path)
-    
-    with open(path, mode="r", encoding="utf-8") as read_file:
-        data = json.load(read_file)
-        return LogsFileModel.model_validate(data)
+        
+    credential = keyring.get_credential("keybin_session", None)
+    key, timestamp = credential.password.split(":")
+    dek = unlockDek(key, credential.username)
+    f = Fernet(dek)
+
+    with open(path, mode="rb") as file:
+        decrypted = f.decrypt(file.read())        
+        return LogsFileModel.model_validate_json(decrypted)
     
     
 def createLogFile(path : Path):
-    defaultFile = {"currentLogId" : 0, "logs": {}}
+    defaultFile = LogsFileModel(currentLogId=0,logs={})
     path.parent.mkdir(parents=True, exist_ok=True)
+    saveLogFile(defaultFile)
     
-    with open(path, "w", encoding="utf-8") as new_file:
-        json.dump(defaultFile, new_file, indent=4)
-
 def saveLogFile(logFile : LogsFileModel):
     path = getActivePath()
-    with open(path, "w", encoding="utf-8") as new_file:
-        json.dump(logFile.model_dump(), new_file, indent=4)
+    credential = keyring.get_credential("keybin_session", None)
+    key, timestamp = credential.password.split(":")
+    dek = unlockDek(key, credential.username)
+    f = Fernet(dek)
+
+    dataString = logFile.model_dump_json()
+    dataBytes = dataString.encode("utf-8")
+    encryptedDataBytes = f.encrypt(dataBytes)
+    
+    with open(path, "wb") as new_file:
+        new_file.write(encryptedDataBytes.decode("utf-8"))
 
 def newLog(
     service : str | None = None, 
@@ -309,9 +321,9 @@ def require_active_session(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         try:
-            token = tokenCheck() 
+            sessionData = tokenCheck() 
             user = getConfig().active_profile
-            key, timestamp = token.split(":")
+            key, timestamp = sessionData.split(":")
             eraseToken()
             createToken(user, key)
             

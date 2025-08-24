@@ -2,7 +2,7 @@ from rich.console import Console
 from rich.table import Table
 
 import typer
-from keybin.core import getConfig, startProfile, checkPass, eraseProfileData, eraseToken, createToken, require_active_session
+from keybin.core import getConfig, startProfile, unlockDek, eraseProfileData, eraseToken, createToken, require_active_session
 from keybin.models import ConfigDataModel, ProfileModel
 
 profile_app = typer.Typer()
@@ -53,7 +53,7 @@ def switchProfile(user:str = typer.Argument(None, help="Profile to switch to"), 
     
     if profileHasMasterkey : ## si el perfil tiene contraseña tengo que pedirla y chequear 
         if not key : key = typer.prompt("Please insert profile's masterkey: \n")
-        if not checkPass(key, user):
+        if not unlockDek(key, user):
             typer.echo(typer.style("ERROR : Incorrect masterkey.", fg="red"))
             return 0
         
@@ -78,7 +78,7 @@ def deleteProfile(profile: str = typer.Argument(None)):
     
     if config.profiles[profile].encrypted_dek : 
         key = typer.prompt("Insert profile's masterkey to confirm deletion")
-        if not checkPass(key, profile) : 
+        if not unlockDek(key, profile) : 
             typer.echo(typer.style("ERROR : Incorrect masterkey.", fg="red"))
             return 0
     else:
