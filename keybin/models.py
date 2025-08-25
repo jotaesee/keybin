@@ -16,6 +16,7 @@ class LogsFileModel(BaseModel):
 
 class ProfileModel(BaseModel):
     data_path: str
+    encrypted : bool
     salt: str | None = None
     encrypted_dek: str | None = None
 

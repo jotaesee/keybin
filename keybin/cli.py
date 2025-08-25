@@ -38,7 +38,12 @@ def userStatus() :
         datapath = config.profiles[active_profile].data_path
         log_count = len(log_file.logs)
         
-        typer.echo(f"Active profile: {typer.style(active_profile, bold=True, fg="green")}")
+        profileIsEncrypted = config.profiles[active_profile].encrypted
+        
+        if profileIsEncrypted :
+            typer.echo(f"Active profile: {typer.style(f"{active_profile} (Encrypted)", bold=True, fg="green")}")
+        else:
+            typer.echo(f"Active profile: {typer.style(f"{active_profile} (NOT Encrypted)", bold=True, fg="red")}")
         typer.echo(f"Profile's data path: {typer.style(datapath, bold=True, fg="bright_blue")} ")
         typer.echo(f"Saved logs count: {typer.style(log_count, bold=True)}")
         
@@ -84,5 +89,5 @@ def login(
 @app.command("logout")
 def logout():
     if not eraseToken():
-        return typer.secho("Already logged out", fg="green")    
+        return typer.secho("Already logged out", fg="yellow")    
     typer.secho("Logged out successfully", fg = "green")

@@ -24,3 +24,6 @@ class PasswordNeededError(KeybinError):
 
 class NoLogFoundError(KeybinError):
     pass
+
+class ProfileAlreadyExistsError(KeybinError):
+    pass
