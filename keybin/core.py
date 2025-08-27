@@ -264,8 +264,6 @@ def doSearch(search : str | None = None , service : str | None = None ,username 
     if search == "all": 
         return logs_list
     
-    if search : return _fuzzySearch(search) ## la busqueda no especifica en que campo busca, asi que tenemos que mandarla a fuzzy search y que se encargue ahi
-    
     for log in logs_list:
         passes = True
 
@@ -285,21 +283,23 @@ def doSearch(search : str | None = None , service : str | None = None ,username 
         if passes:
             filtered_results.append(log)
 
-    if filtered_results == [] :
+    
+    if search : ## si hay search general, usamos los logs post filtro
+        return _fuzzySearch(search, filtered_results) 
+    
+    if filtered_results == [] : ## si no hay search y los resultados estan vacios
         raise NoLogFoundError("No results for this search")
     
+    ##si no hay search y si hay resultados filtrados
     return filtered_results
 
 
-def _fuzzySearch(search : str):
+def _fuzzySearch(search : str, logs : list[passwordLog]):
     SCORE_THRESHOLD = 75
-
-    profileLogFile: LogsFileModel = getLogFile()
-    all_logs: list[passwordLog] = list(profileLogFile.logs.values())
     scored_results = []
     search_lower = search.lower()
 
-    for log in all_logs: ## buscar en todos los campos pq no sabemos q busca
+    for log in logs: ## buscar en todos los campos pq no sabemos q busca
 
         service = log.service.lower() if log.service else ""
         user = log.user.lower() if log.user else ""
