@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://github.com/jotaesee/keybin">
-    <img src="/img/logo.png?raw=true" width="400" alt="keybin Logo"/>
+    <img src="/img/logo.png?raw=true" width="300" alt="keybin Logo"/>
   </a>
 </p>
 
