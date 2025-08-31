@@ -1,0 +1,9 @@
+cryptography==45.0.6
+keyring==25.6.0
+platformdirs==4.4.0
+pydantic==2.11.7
+pyperclip==1.9.0
+rich==14.1.0
+setuptools==80.9.0
+thefuzz==0.22.1
+typer==0.17.3

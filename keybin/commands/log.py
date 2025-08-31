@@ -43,15 +43,15 @@ def find(
     search: str = typer.Argument(None),
     service: str = typer.Option(None, "--service", "-s"),
     username: str = typer.Option(None, "--user", "-u", help="Search exact match for username"),
+    email = typer.Option(None, "--email", "-e", help="Search exact match for email"),
     tags: list[str] = typer.Option([], "--tags", "-t", help="Use this for filtering with tags."),
     id: int =typer.Option(None, "--id", "-i", help="ID for exact match search")
 ):
     try:
-        searchResult: list[passwordLog] = doSearch(search, service, username, tags, id)
+        searchResult: list[passwordLog] = doSearch(search, service, username,email, tags, id)
     
         if not searchResult:
-            typer.echo("No results found")
-            return
+            raise NoLogFoundError("No results for this search")
 
         table = Table(title="Search Results")
         table.add_column("ID", justify="right", style="cyan", no_wrap=True)

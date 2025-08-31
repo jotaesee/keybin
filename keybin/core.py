@@ -255,7 +255,7 @@ def newSecureString(symbols : bool = True, length : int = 16):
     newpass = "".join(secrets.choice(chars) for _ in range(length))
     return newpass 
         
-def doSearch(search : str | None = None , service : str | None = None ,username : str | None = None, tags : list[str] | None = None, id : int | None = None):
+def doSearch(search : str | None = None , service : str | None = None ,username : str | None = None, email :str | None = None , tags : list[str] | None = None, id : int | None = None):
     
     profileLogFile : LogsFileModel = getLogFile()
     logs_list: list[passwordLog] = profileLogFile.logs.values()  # lista ya con instancias
@@ -276,6 +276,9 @@ def doSearch(search : str | None = None , service : str | None = None ,username 
         if username and log.user != username:
             passes = False
 
+        if email and log.email != email:
+            passes = False
+        
         if tags:
             if not log.tags or not all(tag in log.tags for tag in tags):
                 passes = False
