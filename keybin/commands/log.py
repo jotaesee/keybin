@@ -93,7 +93,17 @@ def delete(
             typer.secho("ERROR: The ID must be a number.", fg="red")
             raise typer.Exit()
 
-    if noPrompt or typer.confirm(typer.style("Are you sure you want to delete this log?", fg = "yellow") ):
+    log = doSearch(id = id)[0]
+    typer.secho(f"You are about to {typer.style("delete", fg="red")} the following log:")
+    preview = f"""
+    ID: {log.logID}
+    Service: {log.service}
+    User: {log.user}
+    Email: {log.email}
+    """
+    typer.secho(preview, bold = True, fg="yellow")
+    
+    if noPrompt or typer.confirm(typer.style("Are you sure?", bold=True) ):
         try:
             deleteLog(id, noPrompt)
             typer.secho("Log deleted successfully", fg = "green")

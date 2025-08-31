@@ -76,7 +76,8 @@ def login(
         createToken(user, key)
         typer.secho(f"Logged succesfully into {user}", fg = "green")
     except PasswordNeededError: 
-        return typer.secho("ERROR: Masterkey needed for this profile", fg = "red")
+        typer.secho(f"Enter masterkey for profile '{typer.style(f"{user}", fg="yellow", bold = True)}': ", bold = True)
+        login(user, key = typer.prompt("",hide_input=True))
     except InvalidPasswordError:
         return typer.secho("ERROR: Invalid key", fg = "red")
     except UserNotFoundError:

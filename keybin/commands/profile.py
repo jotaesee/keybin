@@ -56,7 +56,7 @@ def switchProfile(user:str = typer.Argument(None, help="Profile to switch to"), 
     profileIsEncrypted = config.profiles[user].encrypted    
     
     if profileIsEncrypted : ## si el perfil tiene contraseña tengo que pedirla y chequear 
-        if not key : key = typer.prompt("Please insert profile's masterkey: \n")
+        if not key : key = typer.prompt("Please insert profile's masterkey: \n", hide_input=True)
         if not unlockDek(key, user):
             typer.echo(typer.style("ERROR : Incorrect masterkey.", fg="red"))
             return 0
@@ -79,7 +79,7 @@ def deleteProfile(profile: str = typer.Argument(None)):
     profileIsEncrypted = config.profiles[profile].encrypted
     
     if  profileIsEncrypted: 
-        key = typer.prompt("Insert profile's masterkey to confirm deletion")
+        key = typer.prompt("Insert profile's masterkey to confirm deletion", hide_input=True)
         if not unlockDek(key, profile) : 
             typer.echo(typer.style("ERROR : Incorrect masterkey.", fg="red"))
             typer.Exit()
