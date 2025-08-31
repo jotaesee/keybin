@@ -16,7 +16,7 @@
 
 </p>
 
-> Your secure, local and private password manager. Right in your terminal.
+Your secure, local and private password manager. Right in your terminal.
 
 <p align="center">
   <img src="/img/demo.gif?raw=true" alt="keybin Demo"/>
@@ -24,7 +24,7 @@
 
 Built to be **secure** and **efficient** 🔑.
 
-> If you like the project, support me with a `star` and a `follow` on GitHub.
+If you like the project, support me with a `star` and a `follow` on GitHub.
 
 ---
 
@@ -131,7 +131,7 @@ keybin profile add --user myprofile --key "your-very-strong-master-password"
 
 ```
 
-Security Tip: You can create profiles without a masterkey, but a profile not secured does not encrypt it's logs.
+**_Security Tip: You can create profiles without a masterkey, but a profile not secured does not encrypt it's logs._**
 
 ### 2. Log In to Your Profile
 
@@ -143,7 +143,7 @@ keybin login myprofile
 
 ```
 
-Tip: You can check your current session status at any time with keybin status.
+**_Tip: You can check your current session status at any time with keybin status._**
 
 ### 3. Add Your First Password Log
 
